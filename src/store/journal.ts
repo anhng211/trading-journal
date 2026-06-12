@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  CashEvent,
   Confidence,
   Decision,
   Expected,
@@ -10,7 +11,7 @@ import type {
 } from '../types';
 import { emptyJournal } from '../types';
 import { LocalStorageAdapter, type StorageAdapter } from './storage';
-import { replayTrades } from '../lib/portfolio';
+import { replayLedger } from '../lib/portfolio';
 import { fetchQuotes } from '../lib/prices';
 
 const adapter: StorageAdapter = new LocalStorageAdapter();
@@ -34,12 +35,21 @@ export interface DecisionInput {
   trades: TradeInput[];
 }
 
+export interface CashEventInput {
+  datetime: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  note?: string;
+}
+
 interface JournalStore extends JournalData {
   refreshing: boolean;
   refreshError?: string;
 
   addDecision(input: DecisionInput): string;
   deleteDecision(id: string): void;
+  addCashEvent(input: CashEventInput): void;
+  deleteCashEvent(id: string): void;
   saveReview(decisionId: string, review: Review): void;
   setSettings(patch: Partial<Settings>): void;
   setManualPrice(ticker: string, price: number): void;
@@ -51,8 +61,8 @@ interface JournalStore extends JournalData {
 }
 
 const persist = (state: JournalStore) => {
-  const { trades, decisions, settings, prices, priceSnapshots } = state;
-  adapter.save({ trades, decisions, settings, prices, priceSnapshots });
+  const { trades, decisions, cashEvents, settings, prices, priceSnapshots } = state;
+  adapter.save({ trades, decisions, cashEvents, settings, prices, priceSnapshots });
 };
 
 export const useJournal = create<JournalStore>((set, get) => ({
@@ -66,7 +76,12 @@ export const useJournal = create<JournalStore>((set, get) => ({
 
     // Freeze the pre-decision portfolio: this is the "ghost" the
     // counterfactual chart compares against.
-    const ghost = replayTrades(state.trades, state.settings.startingCash, input.datetime);
+    const ghost = replayLedger(
+      state.trades,
+      state.cashEvents,
+      state.settings.startingCash,
+      input.datetime,
+    );
 
     const trades: Trade[] = input.trades.map((t) => ({
       id: crypto.randomUUID(),
@@ -106,6 +121,26 @@ export const useJournal = create<JournalStore>((set, get) => ({
       decisions: s.decisions.filter((d) => d.id !== id),
       trades: s.trades.filter((t) => t.decisionId !== id),
     }));
+    persist(get());
+  },
+
+  addCashEvent(input) {
+    const now = new Date().toISOString();
+    const event: CashEvent = {
+      id: crypto.randomUUID(),
+      datetime: input.datetime,
+      type: input.type,
+      amount: input.amount,
+      note: input.note,
+      createdAt: now,
+      updatedAt: now,
+    };
+    set((s) => ({ cashEvents: [...s.cashEvents, event] }));
+    persist(get());
+  },
+
+  deleteCashEvent(id) {
+    set((s) => ({ cashEvents: s.cashEvents.filter((e) => e.id !== id) }));
     persist(get());
   },
 
@@ -172,8 +207,12 @@ export const useJournal = create<JournalStore>((set, get) => ({
   },
 
   exportJSON() {
-    const { trades, decisions, settings, prices, priceSnapshots } = get();
-    return JSON.stringify({ trades, decisions, settings, prices, priceSnapshots }, null, 2);
+    const { trades, decisions, cashEvents, settings, prices, priceSnapshots } = get();
+    return JSON.stringify(
+      { trades, decisions, cashEvents, settings, prices, priceSnapshots },
+      null,
+      2,
+    );
   },
 
   importJSON(json) {

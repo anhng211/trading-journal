@@ -21,13 +21,14 @@ import { fmtSignedPct } from '../lib/format';
 export function CalibrationChart() {
   const decisions = useJournal((s) => s.decisions);
   const trades = useJournal((s) => s.trades);
+  const cashEvents = useJournal((s) => s.cashEvents);
   const settings = useJournal((s) => s.settings);
   const prices = useJournal((s) => s.prices);
 
   const data = useMemo(() => {
     if (Object.keys(prices).length === 0) return [];
     return decisions.map((d) => {
-      const o = decisionOutcome(d, trades, settings, prices);
+      const o = decisionOutcome(d, trades, cashEvents, settings, prices);
       return {
         confidence: d.confidence,
         pct: o.pct * 100,
@@ -35,7 +36,7 @@ export function CalibrationChart() {
         grade: d.review?.grade,
       };
     });
-  }, [decisions, trades, settings, prices]);
+  }, [decisions, trades, cashEvents, settings, prices]);
 
   if (data.length < 2) return null;
 

@@ -1,5 +1,5 @@
-import type { Decision, JournalData, PriceSnapshot, Trade } from '../types';
-import { replayTrades } from './portfolio';
+import type { CashEvent, Decision, JournalData, PriceSnapshot, Trade } from '../types';
+import { replayLedger } from './portfolio';
 
 const daysAgo = (n: number): string => {
   const d = new Date();
@@ -87,10 +87,22 @@ export function makeDemoData(): JournalData {
   const trades: Trade[] = [];
   const decisions: Decision[] = [];
 
+  const cashEvents: CashEvent[] = [
+    {
+      id: crypto.randomUUID(),
+      datetime: daysAgo(40),
+      type: 'deposit',
+      amount: 3000,
+      note: 'Monthly savings top-up',
+      createdAt: daysAgo(40),
+      updatedAt: now,
+    },
+  ];
+
   for (const d of DEMO) {
     const datetime = daysAgo(d.daysAgo);
     const id = crypto.randomUUID();
-    const ghost = replayTrades(trades, startingCash, datetime);
+    const ghost = replayLedger(trades, cashEvents, startingCash, datetime);
 
     decisions.push({
       id,
@@ -138,6 +150,7 @@ export function makeDemoData(): JournalData {
   return {
     trades,
     decisions,
+    cashEvents,
     settings: { startingCash },
     prices,
     priceSnapshots,

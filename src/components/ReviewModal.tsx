@@ -8,6 +8,7 @@ const GRADES: Grade[] = ['A', 'B', 'C', 'D', 'F'];
 
 export function ReviewModal({ decision, onClose }: { decision: Decision; onClose: () => void }) {
   const trades = useJournal((s) => s.trades);
+  const cashEvents = useJournal((s) => s.cashEvents);
   const settings = useJournal((s) => s.settings);
   const prices = useJournal((s) => s.prices);
   const saveReview = useJournal((s) => s.saveReview);
@@ -16,7 +17,7 @@ export function ReviewModal({ decision, onClose }: { decision: Decision; onClose
   const [notes, setNotes] = useState(decision.review?.notes ?? '');
 
   const hasPrices = Object.keys(prices).length > 0;
-  const outcome = hasPrices ? decisionOutcome(decision, trades, settings, prices) : null;
+  const outcome = hasPrices ? decisionOutcome(decision, trades, cashEvents, settings, prices) : null;
 
   const save = () => {
     saveReview(decision.id, { date: new Date().toISOString(), grade, notes: notes.trim() });

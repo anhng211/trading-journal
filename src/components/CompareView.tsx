@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useJournal } from '../store/journal';
-import { diffPortfolios, replayTrades } from '../lib/portfolio';
+import { diffPortfolios, replayLedger } from '../lib/portfolio';
 import { DiffTable } from './DiffTable';
 import { Slopegraph } from './Slopegraph';
 import { fmtDate, fmtMoney } from '../lib/format';
@@ -9,6 +9,7 @@ import { fmtDate, fmtMoney } from '../lib/format';
 export function CompareView({ a, b }: { a: string; b: string }) {
   const decisions = useJournal((s) => s.decisions);
   const trades = useJournal((s) => s.trades);
+  const cashEvents = useJournal((s) => s.cashEvents);
   const settings = useJournal((s) => s.settings);
   const prices = useJournal((s) => s.prices);
 
@@ -18,10 +19,10 @@ export function CompareView({ a, b }: { a: string; b: string }) {
   const result = useMemo(() => {
     if (!da || !db) return null;
     const [earlier, later] = da.datetime <= db.datetime ? [da, db] : [db, da];
-    const stateA = replayTrades(trades, settings.startingCash, earlier.datetime, true);
-    const stateB = replayTrades(trades, settings.startingCash, later.datetime, true);
+    const stateA = replayLedger(trades, cashEvents, settings.startingCash, earlier.datetime, true);
+    const stateB = replayLedger(trades, cashEvents, settings.startingCash, later.datetime, true);
     return { earlier, later, stateA, stateB, diff: diffPortfolios(stateA, stateB, prices) };
-  }, [da, db, trades, settings, prices]);
+  }, [da, db, trades, cashEvents, settings, prices]);
 
   if (!result) {
     return (

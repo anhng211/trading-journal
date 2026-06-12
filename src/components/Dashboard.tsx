@@ -10,15 +10,30 @@ import {
   YAxis,
 } from 'recharts';
 import { useJournal } from '../store/journal';
-import { decisionOutcome, portfolioValue, priceOf, replayTrades } from '../lib/portfolio';
-import { fmtDate, fmtMoney, fmtMoneyExact, fmtShares, fmtSignedMoney } from '../lib/format';
+import {
+  costBasis,
+  decisionOutcome,
+  portfolioValue,
+  priceOf,
+  replayLedger,
+} from '../lib/portfolio';
+import {
+  fmtDate,
+  fmtMoney,
+  fmtMoneyExact,
+  fmtShares,
+  fmtSignedMoney,
+  fmtSignedPct,
+} from '../lib/format';
 import { CalibrationChart } from './CalibrationChart';
+import { FundsCard } from './FundsCard';
 import { makeDemoData } from '../lib/demo';
 import { navigate } from '../lib/route';
 
 export function Dashboard() {
   const trades = useJournal((s) => s.trades);
   const decisions = useJournal((s) => s.decisions);
+  const cashEvents = useJournal((s) => s.cashEvents);
   const settings = useJournal((s) => s.settings);
   const prices = useJournal((s) => s.prices);
   const priceSnapshots = useJournal((s) => s.priceSnapshots);
@@ -31,34 +46,40 @@ export function Dashboard() {
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
   const [priceDraft, setPriceDraft] = useState('');
 
-  const current = useMemo(
-    () => replayTrades(trades, settings.startingCash),
-    [trades, settings.startingCash],
+  const ledger = useMemo(
+    () => replayLedger(trades, cashEvents, settings.startingCash),
+    [trades, cashEvents, settings.startingCash],
   );
-  const value = portfolioValue(current.positions, current.cash, prices);
   const hasPrices = Object.keys(prices).length > 0;
+
+  // Trading 212-style account figures.
+  const invested = costBasis(ledger.positions);
+  const positionsValue = portfolioValue(ledger.positions, 0, prices);
+  const value = positionsValue + ledger.cash;
+  const unrealized = positionsValue - invested;
+  const totalReturn = value - ledger.netDeposits;
+  const totalReturnPct = ledger.netDeposits > 0 ? totalReturn / ledger.netDeposits : 0;
 
   const totalAlpha = useMemo(() => {
     if (!hasPrices) return null;
     return decisions.reduce(
-      (sum, d) => sum + decisionOutcome(d, trades, settings, prices).delta,
+      (sum, d) => sum + decisionOutcome(d, trades, cashEvents, settings, prices).delta,
       0,
     );
-  }, [decisions, trades, settings, prices, hasPrices]);
+  }, [decisions, trades, cashEvents, settings, prices, hasPrices]);
 
   const curve = useMemo(() => {
-    const points = priceSnapshots.map((snap) => {
-      const state = replayTrades(trades, settings.startingCash, snap.t, true);
+    return priceSnapshots.map((snap) => {
+      const state = replayLedger(trades, cashEvents, settings.startingCash, snap.t, true);
       return {
         t: snap.t,
         label: fmtDate(snap.t),
         value: portfolioValue(state.positions, state.cash, snap.prices),
       };
     });
-    return points;
-  }, [priceSnapshots, trades, settings.startingCash]);
+  }, [priceSnapshots, trades, cashEvents, settings.startingCash]);
 
-  if (trades.length === 0) {
+  if (trades.length === 0 && cashEvents.length === 0) {
     return (
       <div className="card">
         <div className="empty">
@@ -83,16 +104,30 @@ export function Dashboard() {
           <div className="value">{fmtMoney(value)}</div>
         </div>
         <div className="stat">
-          <div className="label">Cash</div>
-          <div className="value">{fmtMoney(current.cash)}</div>
+          <div className="label">Free funds</div>
+          <div className="value">{fmtMoney(ledger.cash)}</div>
         </div>
         <div className="stat">
-          <div className="label">Positions</div>
-          <div className="value">{current.positions.length}</div>
+          <div className="label">Invested</div>
+          <div className="value">{fmtMoney(invested)}</div>
         </div>
         <div className="stat">
-          <div className="label">Decisions</div>
-          <div className="value">{decisions.length}</div>
+          <div className="label">Unrealized P/L</div>
+          <div className={`value ${unrealized >= 0 ? 'delta-gain' : 'delta-loss'}`}>
+            {hasPrices ? fmtSignedMoney(unrealized) : '—'}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="label">Realized P/L</div>
+          <div className={`value ${ledger.realizedTotal >= 0 ? 'delta-gain' : 'delta-loss'}`}>
+            {fmtSignedMoney(ledger.realizedTotal)}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="label">Total return · on {fmtMoney(ledger.netDeposits)} in</div>
+          <div className={`value ${totalReturn >= 0 ? 'delta-gain' : 'delta-loss'}`}>
+            {hasPrices ? `${fmtSignedMoney(totalReturn)} (${fmtSignedPct(totalReturnPct)})` : '—'}
+          </div>
         </div>
         {totalAlpha != null && (
           <div className="stat">
@@ -168,7 +203,7 @@ export function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {current.positions.map((p) => {
+            {ledger.positions.map((p) => {
               const price = priceOf(p.ticker, prices, p.avgCost);
               const known = prices[p.ticker] != null;
               const pl = (price - p.avgCost) * p.shares;
@@ -220,6 +255,8 @@ export function Dashboard() {
         </table>
         <p className="hint">Click a price to override it manually — useful offline or without an API key.</p>
       </div>
+
+      <FundsCard />
 
       <CalibrationChart />
     </div>

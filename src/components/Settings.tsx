@@ -57,7 +57,7 @@ export function SettingsView() {
           placeholder="paste your API key"
         />
 
-        <label htmlFor="s-cash">Starting cash ($)</label>
+        <label htmlFor="s-cash">Initial deposit ($) — cash at inception; add later top-ups in Funds on the Dashboard</label>
         <input id="s-cash" type="number" min={0} step="any" value={cash} onChange={(e) => setCash(e.target.value)} />
 
         <div style={{ marginTop: 14 }}>

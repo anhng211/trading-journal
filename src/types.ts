@@ -49,8 +49,20 @@ export interface Decision {
   updatedAt: string;
 }
 
+/** A deposit or withdrawal of cash, independent of any trade. */
+export interface CashEvent {
+  id: string;
+  datetime: string; // ISO
+  type: 'deposit' | 'withdrawal';
+  amount: number; // always positive; type carries the sign
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Settings {
   finnhubKey?: string;
+  /** Cash at inception, before any trades or cash events. */
   startingCash: number;
 }
 
@@ -70,6 +82,7 @@ export interface PriceSnapshot {
 export interface JournalData {
   trades: Trade[];
   decisions: Decision[];
+  cashEvents: CashEvent[];
   settings: Settings;
   prices: PriceCache;
   priceSnapshots: PriceSnapshot[];
@@ -78,6 +91,7 @@ export interface JournalData {
 export const emptyJournal = (): JournalData => ({
   trades: [],
   decisions: [],
+  cashEvents: [],
   settings: { startingCash: 10000 },
   prices: {},
   priceSnapshots: [],

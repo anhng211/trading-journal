@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  costBasis,
   diffPortfolios,
   portfolioValue,
+  replayLedger,
   replayTrades,
   weights,
 } from './portfolio';
-import type { Trade } from '../types';
+import type { CashEvent, Trade } from '../types';
 
 const trade = (overrides: Partial<Trade>): Trade => ({
   id: Math.random().toString(36).slice(2),
@@ -85,6 +87,93 @@ describe('replayTrades', () => {
     );
     expect(state.positions).toHaveLength(1);
     expect(state.positions[0].shares).toBe(10);
+  });
+});
+
+const cashEvent = (overrides: Partial<CashEvent>): CashEvent => ({
+  id: Math.random().toString(36).slice(2),
+  datetime: '2026-01-15T12:00:00.000Z',
+  type: 'deposit',
+  amount: 1000,
+  createdAt: '2026-01-15T12:00:00.000Z',
+  updatedAt: '2026-01-15T12:00:00.000Z',
+  ...overrides,
+});
+
+describe('replayLedger', () => {
+  it('applies deposits and withdrawals to cash and net deposits', () => {
+    const result = replayLedger(
+      [],
+      [
+        cashEvent({ type: 'deposit', amount: 5000 }),
+        cashEvent({ datetime: '2026-02-01T12:00:00.000Z', type: 'withdrawal', amount: 2000 }),
+      ],
+      10000,
+    );
+    expect(result.cash).toBeCloseTo(13000);
+    expect(result.netDeposits).toBeCloseTo(13000);
+  });
+
+  it('excludes cash events after the upTo cutoff', () => {
+    const result = replayLedger(
+      [],
+      [cashEvent({ datetime: '2026-03-01T12:00:00.000Z', amount: 5000 })],
+      10000,
+      '2026-02-01T12:00:00.000Z',
+    );
+    expect(result.cash).toBeCloseTo(10000);
+    expect(result.netDeposits).toBeCloseTo(10000);
+  });
+
+  it('records realized P/L per sell against avg cost at sale time', () => {
+    const sellId = 'sell-1';
+    const result = replayLedger(
+      [
+        trade({ shares: 10, price: 100 }),
+        trade({ datetime: '2026-01-05T12:00:00.000Z', shares: 10, price: 200 }), // avg now 150
+        trade({ id: sellId, datetime: '2026-01-10T12:00:00.000Z', side: 'sell', shares: 5, price: 180, fees: 2 }),
+      ],
+      [],
+      20000,
+    );
+    expect(result.realizedByTrade[sellId]).toBeCloseTo((180 - 150) * 5 - 2);
+    expect(result.realizedTotal).toBeCloseTo(148);
+  });
+
+  it('realized loss on a full exit below cost', () => {
+    const sellId = 'sell-loss';
+    const result = replayLedger(
+      [
+        trade({ ticker: 'INTC', shares: 40, price: 35 }),
+        trade({ id: sellId, datetime: '2026-01-10T12:00:00.000Z', ticker: 'INTC', side: 'sell', shares: 40, price: 30 }),
+      ],
+      [],
+      10000,
+    );
+    expect(result.realizedByTrade[sellId]).toBeCloseTo(-200);
+    expect(result.positions).toHaveLength(0);
+  });
+
+  it('deposits do not inflate return math: value − netDeposits isolates performance', () => {
+    const result = replayLedger(
+      [trade({ shares: 10, price: 100 })],
+      [cashEvent({ datetime: '2026-02-01T12:00:00.000Z', amount: 5000 })],
+      10000,
+    );
+    const value = portfolioValue(result.positions, result.cash, { AAPL: 110 });
+    // gain should be exactly the 10×$10 price move, not the $5k deposit
+    expect(value - result.netDeposits).toBeCloseTo(100);
+  });
+});
+
+describe('costBasis', () => {
+  it('sums shares × avgCost over open positions', () => {
+    expect(
+      costBasis([
+        { ticker: 'AAPL', shares: 10, avgCost: 100 },
+        { ticker: 'VOO', shares: 2, avgCost: 480 },
+      ]),
+    ).toBeCloseTo(1960);
   });
 });
 

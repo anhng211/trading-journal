@@ -5,6 +5,7 @@ import {
   decisionPortfolios,
   diffPortfolios,
   ghostSeries,
+  replayLedger,
 } from '../lib/portfolio';
 import { DiffTable } from './DiffTable';
 import { Slopegraph } from './Slopegraph';
@@ -23,6 +24,7 @@ import { navigate } from '../lib/route';
 export function DecisionDetail({ id }: { id: string }) {
   const decisions = useJournal((s) => s.decisions);
   const trades = useJournal((s) => s.trades);
+  const cashEvents = useJournal((s) => s.cashEvents);
   const settings = useJournal((s) => s.settings);
   const prices = useJournal((s) => s.prices);
   const priceSnapshots = useJournal((s) => s.priceSnapshots);
@@ -33,15 +35,22 @@ export function DecisionDetail({ id }: { id: string }) {
 
   const derived = useMemo(() => {
     if (!decision) return null;
-    const { ghost, acted } = decisionPortfolios(decision, trades, settings);
+    const { ghost, acted } = decisionPortfolios(decision, trades, cashEvents, settings);
+    // Realized P/L is computed against the full ledger so avg cost at the
+    // moment of each sale is correct.
+    const ledger = replayLedger(trades, cashEvents, settings.startingCash);
     return {
       ghost,
       acted,
       diff: diffPortfolios(ghost, acted, prices),
-      series: ghostSeries(decision, trades, settings, prices, priceSnapshots),
-      outcome: Object.keys(prices).length > 0 ? decisionOutcome(decision, trades, settings, prices) : null,
+      series: ghostSeries(decision, trades, cashEvents, settings, prices, priceSnapshots),
+      outcome:
+        Object.keys(prices).length > 0
+          ? decisionOutcome(decision, trades, cashEvents, settings, prices)
+          : null,
+      realizedByTrade: ledger.realizedByTrade,
     };
-  }, [decision, trades, settings, prices, priceSnapshots]);
+  }, [decision, trades, cashEvents, settings, prices, priceSnapshots]);
 
   if (!decision || !derived) {
     return (
@@ -132,26 +141,49 @@ export function DecisionDetail({ id }: { id: string }) {
           <thead>
             <tr>
               <th>Ticker</th><th>Side</th><th className="num">Shares</th>
-              <th className="num">Price</th><th className="num">Fees</th><th>Note</th>
+              <th className="num">Price</th><th className="num">Fees</th>
+              <th className="num">Realized P/L</th><th>Note</th>
             </tr>
           </thead>
           <tbody>
-            {myTrades.map((t) => (
-              <tr key={t.id}>
-                <td><strong>{t.ticker}</strong></td>
-                <td>
-                  <span className={`pill ${t.side === 'buy' ? 'gain' : 'loss'}`}>
-                    {t.side.toUpperCase()}
-                  </span>
-                </td>
-                <td className="num">{fmtShares(t.shares)}</td>
-                <td className="num">{fmtMoneyExact(t.price)}</td>
-                <td className="num">{fmtMoneyExact(t.fees)}</td>
-                <td className="muted">{t.note ?? ''}</td>
-              </tr>
-            ))}
+            {myTrades.map((t) => {
+              const realized = derived.realizedByTrade[t.id];
+              return (
+                <tr key={t.id}>
+                  <td><strong>{t.ticker}</strong></td>
+                  <td>
+                    <span className={`pill ${t.side === 'buy' ? 'gain' : 'loss'}`}>
+                      {t.side.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="num">{fmtShares(t.shares)}</td>
+                  <td className="num">{fmtMoneyExact(t.price)}</td>
+                  <td className="num">{fmtMoneyExact(t.fees)}</td>
+                  <td className={`num ${realized == null ? 'delta-neutral' : realized >= 0 ? 'delta-gain' : 'delta-loss'}`}>
+                    {realized == null ? '—' : fmtSignedMoney(realized)}
+                  </td>
+                  <td className="muted">{t.note ?? ''}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        {(() => {
+          const decisionRealized = myTrades.reduce(
+            (sum, t) => sum + (derived.realizedByTrade[t.id] ?? 0),
+            0,
+          );
+          const hasSells = myTrades.some((t) => t.side === 'sell');
+          return hasSells ? (
+            <p className="hint">
+              Realized by this decision's sells:{' '}
+              <span className={decisionRealized >= 0 ? 'delta-gain' : 'delta-loss'}>
+                {fmtSignedMoney(decisionRealized)}
+              </span>{' '}
+              (locked in against average cost at the time of sale)
+            </p>
+          ) : null;
+        })()}
       </div>
 
       {decision.review && (

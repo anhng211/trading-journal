@@ -6,6 +6,7 @@ import { fmtDate, fmtSignedPct } from '../lib/format';
 export function DecisionList() {
   const decisions = useJournal((s) => s.decisions);
   const trades = useJournal((s) => s.trades);
+  const cashEvents = useJournal((s) => s.cashEvents);
   const settings = useJournal((s) => s.settings);
   const prices = useJournal((s) => s.prices);
   const [selected, setSelected] = useState<string[]>([]);
@@ -43,7 +44,7 @@ export function DecisionList() {
       </div>
 
       {sorted.map((d) => {
-        const outcome = hasPrices ? decisionOutcome(d, trades, settings, prices) : null;
+        const outcome = hasPrices ? decisionOutcome(d, trades, cashEvents, settings, prices) : null;
         const isSel = selected.includes(d.id);
         const tradeCount = trades.filter((t) => t.decisionId === d.id).length;
         return (

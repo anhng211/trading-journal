@@ -1,4 +1,4 @@
-import type { Decision, Position, PriceCache, PriceSnapshot, Settings, Trade } from '../types';
+import type { CashEvent, Decision, Position, PriceCache, PriceSnapshot, Settings, Trade } from '../types';
 
 const EPS = 1e-9;
 
@@ -7,23 +7,44 @@ export interface PortfolioState {
   cash: number;
 }
 
+export interface LedgerResult extends PortfolioState {
+  /** Realized P/L per sell trade id: (sale price − avg cost) × shares − fees. */
+  realizedByTrade: Record<string, number>;
+  realizedTotal: number;
+  /** startingCash + deposits − withdrawals, up to the same cutoff. */
+  netDeposits: number;
+}
+
 /**
- * Replay trades (sorted by datetime) into positions + cash.
- * `upTo` (ISO, exclusive) limits the replay — used to derive the
- * portfolio as it stood just before a decision.
+ * Replay trades and cash events (sorted by datetime) into positions, cash,
+ * realized P/L, and net deposits. `upTo` (ISO, exclusive by default) limits
+ * the replay — used to derive the portfolio as it stood just before a decision.
  */
-export function replayTrades(
+export function replayLedger(
   trades: Trade[],
+  cashEvents: CashEvent[],
   startingCash: number,
   upTo?: string,
   inclusive = false,
-): PortfolioState {
-  const sorted = [...trades].sort((a, b) => a.datetime.localeCompare(b.datetime));
+): LedgerResult {
+  const cutoff = (datetime: string) =>
+    !!upTo && (inclusive ? datetime > upTo : datetime >= upTo);
+
   const map = new Map<string, Position>();
   let cash = startingCash;
+  let netDeposits = startingCash;
+  const realizedByTrade: Record<string, number> = {};
+  let realizedTotal = 0;
 
-  for (const t of sorted) {
-    if (upTo && (inclusive ? t.datetime > upTo : t.datetime >= upTo)) break;
+  for (const e of [...cashEvents].sort((a, b) => a.datetime.localeCompare(b.datetime))) {
+    if (cutoff(e.datetime)) break;
+    const signed = e.type === 'deposit' ? e.amount : -e.amount;
+    cash += signed;
+    netDeposits += signed;
+  }
+
+  for (const t of [...trades].sort((a, b) => a.datetime.localeCompare(b.datetime))) {
+    if (cutoff(t.datetime)) break;
     const ticker = t.ticker.toUpperCase();
     const pos = map.get(ticker) ?? { ticker, shares: 0, avgCost: 0 };
 
@@ -33,6 +54,9 @@ export function replayTrades(
       pos.avgCost = pos.shares > EPS ? totalCost / pos.shares : 0;
       cash -= t.shares * t.price + t.fees;
     } else {
+      const realized = (t.price - pos.avgCost) * t.shares - t.fees;
+      realizedByTrade[t.id] = realized;
+      realizedTotal += realized;
       pos.shares -= t.shares;
       cash += t.shares * t.price - t.fees;
       if (pos.shares <= EPS) {
@@ -44,7 +68,23 @@ export function replayTrades(
     else map.set(ticker, pos);
   }
 
-  return { positions: [...map.values()], cash };
+  return { positions: [...map.values()], cash, realizedByTrade, realizedTotal, netDeposits };
+}
+
+/** Trades-only replay; kept for callers that don't deal in cash events. */
+export function replayTrades(
+  trades: Trade[],
+  startingCash: number,
+  upTo?: string,
+  inclusive = false,
+): PortfolioState {
+  const { positions, cash } = replayLedger(trades, [], startingCash, upTo, inclusive);
+  return { positions, cash };
+}
+
+/** Total cost basis of open positions (what's currently invested). */
+export function costBasis(positions: Position[]): number {
+  return positions.reduce((sum, p) => sum + p.shares * p.avgCost, 0);
 }
 
 export function priceOf(ticker: string, prices: PriceCache, fallback: number): number {
@@ -139,14 +179,15 @@ export function diffPortfolios(
 export function decisionPortfolios(
   decision: Decision,
   trades: Trade[],
+  cashEvents: CashEvent[],
   settings: Settings,
 ): { ghost: PortfolioState; acted: PortfolioState } {
   const ghost: PortfolioState = {
     positions: decision.ghostSnapshot,
     cash: decision.ghostCash,
   };
-  const acted = replayTrades(trades, settings.startingCash, decision.datetime, true);
-  return { ghost, acted };
+  const acted = replayLedger(trades, cashEvents, settings.startingCash, decision.datetime, true);
+  return { ghost, acted: { positions: acted.positions, cash: acted.cash } };
 }
 
 export interface DecisionOutcome {
@@ -160,10 +201,11 @@ export interface DecisionOutcome {
 export function decisionOutcome(
   decision: Decision,
   trades: Trade[],
+  cashEvents: CashEvent[],
   settings: Settings,
   prices: PriceCache,
 ): DecisionOutcome {
-  const { ghost, acted } = decisionPortfolios(decision, trades, settings);
+  const { ghost, acted } = decisionPortfolios(decision, trades, cashEvents, settings);
   const ghostValue = portfolioValue(ghost.positions, ghost.cash, prices);
   const actedValue = portfolioValue(acted.positions, acted.cash, prices);
   const delta = actedValue - ghostValue;
@@ -184,11 +226,12 @@ export interface GhostPoint {
 export function ghostSeries(
   decision: Decision,
   trades: Trade[],
+  cashEvents: CashEvent[],
   settings: Settings,
   prices: PriceCache,
   snapshots: PriceSnapshot[],
 ): GhostPoint[] {
-  const { ghost, acted } = decisionPortfolios(decision, trades, settings);
+  const { ghost, acted } = decisionPortfolios(decision, trades, cashEvents, settings);
 
   // Anchor: at execution, value both portfolios at the decision's trade
   // prices (avgCost fallback for untouched holdings) — they differ only by fees.
