@@ -200,3 +200,35 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .legend { display: flex; gap: 16px; font-size: 0.8rem; font-weight: 500; margin-top: 6px; flex-wrap: wrap; }
 .legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--ink); }
+
+/* Allocation donut */
+.donut-wrap { display: grid; grid-template-columns: minmax(220px, 1fr) 1.1fr; gap: 20px; align-items: center; margin-top: 8px; }
+@media (max-width: 640px) { .donut-wrap { grid-template-columns: 1fr; } }
+.donut-chart { position: relative; }
+.donut-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; pointer-events: none; text-align: center;
+}
+.donut-center-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.donut-center-value { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+
+.alloc-legend { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.alloc-legend li {
+  display: grid; grid-template-columns: 14px 1fr auto auto; gap: 10px; align-items: center;
+  padding: 7px 8px; border-radius: var(--radius-sm);
+}
+.alloc-legend li:hover { background: var(--neutral-bg); }
+.alloc-swatch { width: 12px; height: 12px; border-radius: 3px; }
+.alloc-name { font-weight: 600; font-size: 0.9rem; }
+.alloc-weight { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+.alloc-value { font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+
+/* Holdings ticker color dot — ties the table to the donut */
+.ticker-dot { display: inline-block; width: 9px; height: 9px; border-radius: 99px; margin-right: 8px; vertical-align: 1px; }
+
+/* Top movers */
+.movers-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.movers-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--neutral-bg); }
+.movers-list li:last-child { border-bottom: none; }
+.mover-ticker { font-weight: 700; }
+.mover-pl { font-variant-numeric: tabular-nums; font-size: 0.85rem; min-width: 70px; text-align: right; }

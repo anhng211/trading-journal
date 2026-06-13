@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -25,6 +25,9 @@ import {
   fmtSignedMoney,
   fmtSignedPct,
 } from '../lib/format';
+import { buildColorMap } from '../lib/palette';
+import { AllocationDonut } from './AllocationDonut';
+import { TopMovers } from './TopMovers';
 import { CalibrationChart } from './CalibrationChart';
 import { FundsCard } from './FundsCard';
 import { makeDemoData } from '../lib/demo';
@@ -51,6 +54,16 @@ export function Dashboard() {
     [trades, cashEvents, settings.startingCash],
   );
   const hasPrices = Object.keys(prices).length > 0;
+
+  // Stable ticker→color map, ordered by current value, shared by the donut and
+  // the holdings swatches so colors mean the same thing everywhere.
+  const colorMap = useMemo(() => {
+    const ordered = [...ledger.positions]
+      .map((p) => ({ ticker: p.ticker, value: p.shares * priceOf(p.ticker, prices, p.avgCost) }))
+      .sort((a, b) => b.value - a.value)
+      .map((x) => x.ticker);
+    return buildColorMap(ordered);
+  }, [ledger.positions, prices]);
 
   // Trading 212-style account figures.
   const invested = costBasis(ledger.positions);
@@ -141,6 +154,15 @@ export function Dashboard() {
 
       {refreshError && <div className="error-banner">{refreshError}</div>}
 
+      {ledger.positions.length > 0 && (
+        <AllocationDonut
+          positions={ledger.positions}
+          cash={ledger.cash}
+          prices={prices}
+          colorMap={colorMap}
+        />
+      )}
+
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
           <h2>Equity curve</h2>
@@ -151,7 +173,13 @@ export function Dashboard() {
         {curve.length >= 2 ? (
           <>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={curve} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+              <AreaChart data={curve} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                <defs>
+                  <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-bg)" />
                 <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'var(--muted)' }} />
                 <YAxis
@@ -162,7 +190,7 @@ export function Dashboard() {
                 />
                 <Tooltip
                   formatter={(v) => fmtMoney(Number(v ?? 0))}
-                  contentStyle={{ background: 'var(--card)', border: '2px solid var(--ink)', borderRadius: 8, fontWeight: 700 }}
+                  contentStyle={{ background: 'var(--card)', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontWeight: 600 }}
                 />
                 {decisions.map((d) => {
                   const after = curve.find((p) => p.t >= d.datetime);
@@ -176,8 +204,17 @@ export function Dashboard() {
                     />
                   ) : null;
                 })}
-                <Line type="monotone" dataKey="value" name="Portfolio" stroke="var(--accent)" strokeWidth={3} dot={{ r: 3 }} />
-              </LineChart>
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Portfolio"
+                  stroke="var(--accent)"
+                  strokeWidth={2.5}
+                  fill="url(#equityFill)"
+                  dot={{ r: 2.5 }}
+                  activeDot={{ r: 4 }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
             <p className="hint">◆ markers are decisions — open one from the Decisions tab to see its diff.</p>
           </>
@@ -188,6 +225,8 @@ export function Dashboard() {
           </p>
         )}
       </div>
+
+      <TopMovers positions={ledger.positions} prices={prices} />
 
       <div className="card">
         <h2>Holdings</h2>
@@ -209,7 +248,13 @@ export function Dashboard() {
               const pl = (price - p.avgCost) * p.shares;
               return (
                 <tr key={p.ticker}>
-                  <td><strong>{p.ticker}</strong></td>
+                  <td>
+                    <span
+                      className="ticker-dot"
+                      style={{ background: colorMap[p.ticker.toUpperCase()] ?? 'var(--accent)' }}
+                    />
+                    <strong>{p.ticker}</strong>
+                  </td>
                   <td className="num">{fmtShares(p.shares)}</td>
                   <td className="num">{fmtMoneyExact(p.avgCost)}</td>
                   <td className="num">
