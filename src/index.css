@@ -12,6 +12,12 @@
   --warn: #b9770e;  --warn-bg: #fdf3e3;
   --neutral: #6b7280; --neutral-bg: #f1f3f4;
   --radius: 8px;
+  /* Hairline border for static surfaces (vs the bold --ink border on controls). */
+  --border-soft: #dbe1ec;
+  /* Soft, low elevation for STATIC surfaces — deliberately unlike the bold
+     offset shadow used on interactive controls, so shadow reads as "clickable". */
+  --elev: 0 1px 3px rgba(17, 26, 38, 0.08);
+  --elev-float: 0 16px 40px rgba(17, 26, 38, 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +29,9 @@
     --loss: #ef7060; --loss-bg: #3a201d;
     --warn: #e2a83d; --warn-bg: #38301b;
     --neutral: #9aa4ad; --neutral-bg: #262d2b;
+    --border-soft: #2e3744;
+    --elev: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --elev-float: 0 18px 44px rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -54,10 +63,12 @@ header.app p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; font-we
   transform: translate(4px, 4px); box-shadow: 0 0 0 var(--shadow);
 }
 
+/* Static container: flat with a thin border + the faintest elevation —
+   no bold offset shadow, so it does not read as clickable. */
 .card {
-  background: var(--card); border: 2px solid var(--ink);
+  background: var(--card); border: 1.5px solid var(--border-soft);
   border-radius: var(--radius); padding: 20px;
-  box-shadow: 8px 8px 0 var(--shadow); margin-bottom: 24px;
+  box-shadow: var(--elev); margin-bottom: 24px;
 }
 .card h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 12px; }
 .card h3 { font-size: 1rem; font-weight: 800; margin: 14px 0 8px; }
@@ -68,7 +79,8 @@ input, textarea, select {
   background: var(--card); color: var(--text); outline: none;
   font-family: inherit; font-weight: 600;
 }
-input:focus, textarea:focus, select:focus { box-shadow: 3px 3px 0 var(--accent); }
+/* Editable field affordance: a focus ring (not an offset/button shadow). */
+input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 textarea { min-height: 90px; resize: vertical; }
 label { display: block; font-size: 0.8rem; font-weight: 800; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.4px; }
 
@@ -126,9 +138,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .decision-item .title-line strong { font-size: 1.05rem; }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+/* Read-only metric tile: flat, no offset shadow. */
 .stat {
-  border: 2px solid var(--ink); border-radius: var(--radius); padding: 12px 14px;
-  background: var(--card); box-shadow: 4px 4px 0 var(--shadow);
+  border: 1.5px solid var(--border-soft); border-radius: var(--radius); padding: 12px 14px;
+  background: var(--card); box-shadow: var(--elev);
 }
 .stat .label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
 .stat .value { font-size: 1.4rem; font-weight: 900; font-variant-numeric: tabular-nums; }
@@ -142,9 +155,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   position: fixed; inset: 0; background: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
 }
+/* Dialog floating above an overlay: soft diffuse elevation (not a button shadow). */
 .modal {
-  background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius);
-  box-shadow: 10px 10px 0 var(--shadow); padding: 22px; max-width: 560px; width: 100%;
+  background: var(--card); border: 1.5px solid var(--border-soft); border-radius: var(--radius);
+  box-shadow: var(--elev-float); padding: 22px; max-width: 560px; width: 100%;
   max-height: 90vh; overflow-y: auto;
 }
 
@@ -161,10 +175,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @media (max-width: 700px) { .trade-row-grid { grid-template-columns: 1fr 1fr; } }
 
+/* Sticky action banner: floats, so soft elevation — the CTA inside carries the click affordance. */
 .compare-bar {
   position: sticky; bottom: 16px; display: flex; gap: 10px; align-items: center;
-  background: var(--accent); color: #fff; border: 2px solid var(--ink);
-  border-radius: var(--radius); padding: 10px 16px; box-shadow: 6px 6px 0 var(--shadow);
+  background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius); padding: 12px 18px; box-shadow: var(--elev-float);
   font-weight: 800; justify-content: space-between; flex-wrap: wrap;
 }
 .compare-bar .btn { background: var(--card); color: var(--text); }
