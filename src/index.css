@@ -23,20 +23,21 @@
   --elev-float: 0 16px 40px rgba(17, 26, 38, 0.22);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14181f; --card: #1d232d; --text: #e8ecf3; --muted: #97a2b8;
-    --ink: #e8ecf3; --shadow: #6f96e8;
-    --accent: #6f96e8; --accent-soft: #20304d;
-    --gain: #4cc488; --gain-bg: #1c3328;
-    --loss: #ef7060; --loss-bg: #3a201d;
-    --warn: #e2a83d; --warn-bg: #38301b;
-    --neutral: #9aa4ad; --neutral-bg: #262d2b;
-    --border-soft: #2e3744;
-    --field-border: #3a4756;
-    --elev: 0 2px 8px rgba(0, 0, 0, 0.35);
-    --elev-float: 0 18px 44px rgba(0, 0, 0, 0.55);
-  }
+/* Dark theme is applied via data-theme on <html>, set by the theme module
+   (Auto/Light/Dark). An inline script in index.html sets it before first paint
+   to avoid a flash. Auto resolves the OS preference to 'light' or 'dark' in JS. */
+:root[data-theme="dark"] {
+  --bg: #14181f; --card: #1d232d; --text: #e8ecf3; --muted: #97a2b8;
+  --ink: #e8ecf3; --shadow: #6f96e8;
+  --accent: #6f96e8; --accent-soft: #20304d;
+  --gain: #4cc488; --gain-bg: #1c3328;
+  --loss: #ef7060; --loss-bg: #3a201d;
+  --warn: #e2a83d; --warn-bg: #38301b;
+  --neutral: #9aa4ad; --neutral-bg: #262d2b;
+  --border-soft: #2e3744;
+  --field-border: #3a4756;
+  --elev: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --elev-float: 0 18px 44px rgba(0, 0, 0, 0.55);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,7 +52,26 @@ body {
   font-feature-settings: "tnum" 1; /* tabular figures throughout — finance-friendly */
 }
 
-.wrap { max-width: 960px; margin: 0 auto; }
+.wrap { max-width: 960px; margin: 0 auto; position: relative; }
+
+/* Quick light/dark toggle, top-right of the page */
+.theme-toggle {
+  position: absolute; top: 0; right: 0; z-index: 5;
+  width: 40px; height: 40px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text);
+}
+
+/* Segmented control (Settings → Appearance) */
+.seg { display: inline-flex; gap: 0; border: 1.5px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--elev); }
+.seg button {
+  border: none; border-radius: 0; box-shadow: none; background: var(--card);
+  padding: 7px 16px; font-size: 0.85rem; font-weight: 600; color: var(--muted);
+}
+.seg button:hover { transform: none; box-shadow: none; background: var(--neutral-bg); }
+.seg button:active { transform: none; box-shadow: none; }
+.seg button + button { border-left: 1.5px solid var(--border-soft); }
+.seg button.active { background: var(--accent); color: #fff; }
 
 header.app { text-align: center; margin-bottom: 26px; }
 header.app h1 { font-size: 1.85rem; font-weight: 800; letter-spacing: -0.025em; }

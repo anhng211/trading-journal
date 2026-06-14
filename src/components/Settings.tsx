@@ -1,8 +1,16 @@
 import { useRef, useState } from 'react';
 import { useJournal } from '../store/journal';
 import { makeDemoData } from '../lib/demo';
+import { useTheme, type ThemeMode } from '../lib/theme';
+
+const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
+  { value: 'system', label: 'Auto' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 export function SettingsView() {
+  const { mode, setMode } = useTheme();
   const settings = useJournal((s) => s.settings);
   const setSettings = useJournal((s) => s.setSettings);
   const exportJSON = useJournal((s) => s.exportJSON);
@@ -50,6 +58,21 @@ export function SettingsView() {
       <div className="card">
         <h2>Settings</h2>
         {message && <p className="hint">{message}</p>}
+
+        <label>Appearance</label>
+        <div className="seg" role="group" aria-label="Theme">
+          {THEME_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              className={mode === o.value ? 'active' : ''}
+              aria-pressed={mode === o.value}
+              onClick={() => setMode(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="hint">“Auto” follows your device’s light/dark setting.</p>
 
         <label htmlFor="s-key">Finnhub API key (free at finnhub.io — stays in this browser)</label>
         <input
