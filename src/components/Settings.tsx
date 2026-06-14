@@ -12,6 +12,7 @@ export function SettingsView() {
 
   const [key, setKey] = useState(settings.finnhubKey ?? '');
   const [cash, setCash] = useState(String(settings.startingCash));
+  const [benchmark, setBenchmark] = useState(settings.benchmarkTicker ?? 'SPY');
   const [message, setMessage] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -20,6 +21,7 @@ export function SettingsView() {
     setSettings({
       finnhubKey: key.trim() || undefined,
       startingCash: Number.isFinite(startingCash) && startingCash >= 0 ? startingCash : settings.startingCash,
+      benchmarkTicker: benchmark.trim().toUpperCase() || undefined,
     });
     setMessage('Settings saved.');
   };
@@ -60,6 +62,9 @@ export function SettingsView() {
         <label htmlFor="s-cash">Initial deposit ($) — cash at inception; add later top-ups in Funds on the Dashboard</label>
         <input id="s-cash" type="number" min={0} step="any" value={cash} onChange={(e) => setCash(e.target.value)} />
 
+        <label htmlFor="s-bench">Benchmark ticker (the equity curve compares against this)</label>
+        <input id="s-bench" value={benchmark} onChange={(e) => setBenchmark(e.target.value.toUpperCase())} placeholder="SPY" />
+
         <div style={{ marginTop: 14 }}>
           <button className="primary" onClick={save}>Save settings</button>
         </div>
@@ -76,6 +81,7 @@ export function SettingsView() {
           import to move it to another device.
         </p>
         <div className="row" style={{ marginTop: 12 }}>
+          <a className="btn" href="#/setup">＋ Set up / add holdings</a>
           <button onClick={doExport}>⬇ Export JSON</button>
           <button onClick={() => fileRef.current?.click()}>⬆ Import JSON</button>
           <button onClick={() => { loadData(makeDemoData()); setMessage('Demo data loaded.'); }}>

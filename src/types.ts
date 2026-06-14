@@ -45,6 +45,8 @@ export interface Decision {
   /** Frozen pre-decision holdings + cash, so the counterfactual is stable. */
   ghostSnapshot: Position[];
   ghostCash: number;
+  /** 'opening' = synthetic baseline created at onboarding (not a predicted decision). */
+  kind?: 'opening';
   createdAt: string;
   updatedAt: string;
 }
@@ -64,6 +66,8 @@ export interface Settings {
   finnhubKey?: string;
   /** Cash at inception, before any trades or cash events. */
   startingCash: number;
+  /** Ticker the equity curve is benchmarked against (e.g. SPY). */
+  benchmarkTicker?: string;
 }
 
 export interface PriceEntry {
@@ -92,7 +96,7 @@ export const emptyJournal = (): JournalData => ({
   trades: [],
   decisions: [],
   cashEvents: [],
-  settings: { startingCash: 10000 },
+  settings: { startingCash: 10000, benchmarkTicker: 'SPY' },
   prices: {},
   priceSnapshots: [],
 });

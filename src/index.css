@@ -226,6 +226,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* Holdings ticker color dot — ties the table to the donut */
 .ticker-dot { display: inline-block; width: 9px; height: 9px; border-radius: 99px; margin-right: 8px; vertical-align: 1px; }
 
+/* Onboarding nudge */
+.nudge {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  flex-wrap: wrap; border-color: var(--accent); background: var(--accent-soft);
+}
+.nudge span { font-weight: 600; font-size: 0.92rem; }
+
 /* Top movers */
 .movers-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .movers-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--neutral-bg); }

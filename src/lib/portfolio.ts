@@ -269,3 +269,55 @@ export function ghostSeries(
   }
   return points;
 }
+
+export interface BenchmarkPoint {
+  t: string;
+  value: number;
+}
+
+/**
+ * "What if the same money went into the index instead?" — money-weighted.
+ * Each cash inflow (initial capital + deposits − withdrawals) buys/sells
+ * benchmark UNITS at the benchmark price of the first snapshot on/after its
+ * date (flows before tracking started use the first snapshot price). Benchmark
+ * value at snapshot t = units(t) × benchPrice(t). Builds forward from the
+ * snapshots we have (free tier has no historical backfill).
+ */
+export function benchmarkSeries(
+  cashEvents: CashEvent[],
+  startingCash: number,
+  snapshots: PriceSnapshot[],
+  benchmarkTicker?: string,
+): BenchmarkPoint[] {
+  if (!benchmarkTicker) return [];
+  const sym = benchmarkTicker.toUpperCase();
+  const benchSnaps = snapshots
+    .filter((s) => s.prices[sym] != null && s.prices[sym] > 0)
+    .sort((a, b) => a.t.localeCompare(b.t));
+  if (benchSnaps.length === 0) return [];
+
+  const firstPrice = benchSnaps[0].prices[sym];
+  const priceAtOrAfter = (date: string): number => {
+    const snap = benchSnaps.find((s) => s.t >= date);
+    return snap ? snap.prices[sym] : benchSnaps[benchSnaps.length - 1].prices[sym];
+  };
+
+  const flows: { date: string; amount: number }[] = [
+    { date: benchSnaps[0].t, amount: startingCash },
+    ...cashEvents.map((e) => ({
+      date: e.datetime,
+      amount: e.type === 'deposit' ? e.amount : -e.amount,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  return benchSnaps.map((snap) => {
+    let units = 0;
+    for (const f of flows) {
+      if (f.date <= snap.t) {
+        const entryPrice = f.date < benchSnaps[0].t ? firstPrice : priceAtOrAfter(f.date);
+        units += f.amount / entryPrice;
+      }
+    }
+    return { t: snap.t, value: units * snap.prices[sym] };
+  });
+}

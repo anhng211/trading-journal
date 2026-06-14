@@ -4,10 +4,11 @@ import { DecisionList } from './components/DecisionList';
 import { DecisionDetail } from './components/DecisionDetail';
 import { DecisionForm } from './components/DecisionForm';
 import { CompareView } from './components/CompareView';
+import { PortfolioSetup } from './components/PortfolioSetup';
 import { SettingsView } from './components/Settings';
 
 const TABS: Array<{ label: string; href: string; match: Route['name'][] }> = [
-  { label: 'Dashboard', href: '#/', match: ['dashboard'] },
+  { label: 'Dashboard', href: '#/', match: ['dashboard', 'setup'] },
   { label: 'Decisions', href: '#/decisions', match: ['decisions', 'decision', 'compare'] },
   { label: '+ New Decision', href: '#/new', match: ['new'] },
   { label: 'Settings', href: '#/settings', match: ['settings'] },
@@ -38,6 +39,7 @@ function App() {
       {route.name === 'decision' && <DecisionDetail id={route.id} />}
       {route.name === 'compare' && <CompareView a={route.a} b={route.b} />}
       {route.name === 'new' && <DecisionForm />}
+      {route.name === 'setup' && <PortfolioSetup />}
       {route.name === 'settings' && <SettingsView />}
     </div>
   );

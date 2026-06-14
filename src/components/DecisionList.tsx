@@ -24,10 +24,11 @@ export function DecisionList() {
       <div className="card">
         <div className="empty">
           <div className="big">📓</div>
-          <p>No decisions yet. Every entry starts with a thesis.</p>
-          <p style={{ marginTop: 12 }}>
-            <a className="btn primary" href="#/new">+ Log your first decision</a>
-          </p>
+          <p>No decisions yet. Set up the holdings you already own, then journal decisions from there.</p>
+          <div className="row" style={{ marginTop: 12, justifyContent: 'center' }}>
+            <a className="btn primary" href="#/setup">Set up your portfolio</a>
+            <a className="btn" href="#/new">+ Log a decision</a>
+          </div>
         </div>
       </div>
     );
@@ -54,7 +55,11 @@ export function DecisionList() {
               <span className="muted">{fmtDate(d.datetime)}</span>
             </div>
             <div className="tag-row">
-              <span className="pill accent">conf {d.confidence}/5</span>
+              {d.kind === 'opening' ? (
+                <span className="pill accent">opening</span>
+              ) : (
+                <span className="pill accent">conf {d.confidence}/5</span>
+              )}
               <span className="pill neutral">{tradeCount} trade{tradeCount === 1 ? '' : 's'}</span>
               {d.tags.map((t) => (
                 <span key={t} className="pill neutral">{t}</span>

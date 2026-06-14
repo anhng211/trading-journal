@@ -27,15 +27,18 @@ export function CalibrationChart() {
 
   const data = useMemo(() => {
     if (Object.keys(prices).length === 0) return [];
-    return decisions.map((d) => {
-      const o = decisionOutcome(d, trades, cashEvents, settings, prices);
-      return {
-        confidence: d.confidence,
-        pct: o.pct * 100,
-        title: d.title,
-        grade: d.review?.grade,
-      };
-    });
+    return decisions
+      // The 'opening' baseline has an assigned (not predicted) confidence — exclude it.
+      .filter((d) => d.kind !== 'opening')
+      .map((d) => {
+        const o = decisionOutcome(d, trades, cashEvents, settings, prices);
+        return {
+          confidence: d.confidence,
+          pct: o.pct * 100,
+          title: d.title,
+          grade: d.review?.grade,
+        };
+      });
   }, [decisions, trades, cashEvents, settings, prices]);
 
   if (data.length < 2) return null;

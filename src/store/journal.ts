@@ -42,11 +42,19 @@ export interface CashEventInput {
   note?: string;
 }
 
+export interface HoldingInput {
+  ticker: string;
+  shares: number;
+  avgCost: number;
+  purchaseDate?: string; // ISO date
+}
+
 interface JournalStore extends JournalData {
   refreshing: boolean;
   refreshError?: string;
 
   addDecision(input: DecisionInput): string;
+  addOpeningPortfolio(holdings: HoldingInput[], freeFunds: number): string;
   deleteDecision(id: string): void;
   addCashEvent(input: CashEventInput): void;
   deleteCashEvent(id: string): void;
@@ -116,6 +124,63 @@ export const useJournal = create<JournalStore>((set, get) => ({
     return id;
   },
 
+  addOpeningPortfolio(holdings, freeFunds) {
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    const id = crypto.randomUUID();
+
+    const valid = holdings.filter((h) => h.ticker.trim() && h.shares > 0 && h.avgCost > 0);
+    if (valid.length === 0) return id;
+
+    const trades: Trade[] = valid.map((h) => ({
+      id: crypto.randomUUID(),
+      datetime: new Date(`${h.purchaseDate || today}T12:00:00`).toISOString(),
+      ticker: h.ticker.toUpperCase(),
+      side: 'buy',
+      shares: h.shares,
+      price: h.avgCost,
+      fees: 0,
+      decisionId: id,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    // The holdings were already paid for, so opening capital = stated free funds
+    // PLUS the cost basis of those holdings. Replaying the opening buys then
+    // leaves cash back at exactly the user's free funds.
+    const costBasis = valid.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
+    const startingCash = Math.max(0, freeFunds) + costBasis;
+
+    // Decision sits at/after the latest opening trade so all holdings are "acted".
+    const datetime = trades.reduce((max, t) => (t.datetime > max ? t.datetime : max), now);
+
+    // Forced EMPTY ghost (with all capital as cash): the opening baseline reads
+    // honestly as "your holdings vs. staying in cash" and its diff shows
+    // everything as + NEW — independent of differing purchase dates.
+    const decision: Decision = {
+      id,
+      datetime,
+      title: 'Opening portfolio',
+      thesis: 'Positions I held when I started journaling.',
+      confidence: 3,
+      tags: [],
+      expected: { text: '' },
+      ghostSnapshot: [],
+      ghostCash: startingCash,
+      kind: 'opening',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    set((s) => ({
+      decisions: [...s.decisions, decision],
+      trades: [...s.trades, ...trades],
+      settings: { ...s.settings, startingCash },
+    }));
+    persist(get());
+    return id;
+  },
+
   deleteDecision(id) {
     set((s) => ({
       decisions: s.decisions.filter((d) => d.id !== id),
@@ -179,7 +244,11 @@ export const useJournal = create<JournalStore>((set, get) => ({
       set({ refreshError: 'No Finnhub API key set — add one in Settings or enter prices manually.' });
       return;
     }
-    const tickers = [...new Set(state.trades.map((t) => t.ticker))];
+    // Include the benchmark so its line on the equity curve grows alongside.
+    const benchmark = state.settings.benchmarkTicker?.toUpperCase();
+    const tickers = [
+      ...new Set([...state.trades.map((t) => t.ticker), ...(benchmark ? [benchmark] : [])]),
+    ];
     if (tickers.length === 0) return;
 
     set({ refreshing: true, refreshError: undefined });

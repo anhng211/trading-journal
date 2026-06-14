@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { useJournal } from '../store/journal';
 import {
+  benchmarkSeries,
   costBasis,
   decisionOutcome,
   portfolioValue,
@@ -73,33 +74,52 @@ export function Dashboard() {
   const totalReturn = value - ledger.netDeposits;
   const totalReturnPct = ledger.netDeposits > 0 ? totalReturn / ledger.netDeposits : 0;
 
+  // Skill metrics exclude the synthetic 'opening' baseline (its confidence is
+  // assigned, not predicted, and its holdings weren't a journaled call).
+  const judgedDecisions = useMemo(
+    () => decisions.filter((d) => d.kind !== 'opening'),
+    [decisions],
+  );
+
   const totalAlpha = useMemo(() => {
     if (!hasPrices) return null;
-    return decisions.reduce(
+    return judgedDecisions.reduce(
       (sum, d) => sum + decisionOutcome(d, trades, cashEvents, settings, prices).delta,
       0,
     );
-  }, [decisions, trades, cashEvents, settings, prices, hasPrices]);
+  }, [judgedDecisions, trades, cashEvents, settings, prices, hasPrices]);
 
   const curve = useMemo(() => {
+    const bench = benchmarkSeries(
+      cashEvents,
+      settings.startingCash,
+      priceSnapshots,
+      settings.benchmarkTicker,
+    );
+    const benchByT = new Map(bench.map((b) => [b.t, b.value]));
     return priceSnapshots.map((snap) => {
       const state = replayLedger(trades, cashEvents, settings.startingCash, snap.t, true);
       return {
         t: snap.t,
         label: fmtDate(snap.t),
         value: portfolioValue(state.positions, state.cash, snap.prices),
+        benchmark: benchByT.get(snap.t),
       };
     });
-  }, [priceSnapshots, trades, cashEvents, settings.startingCash]);
+  }, [priceSnapshots, trades, cashEvents, settings.startingCash, settings.benchmarkTicker]);
+
+  const hasBenchmark = curve.some((p) => p.benchmark != null);
+  const onlyOpening =
+    decisions.length > 0 && decisions.every((d) => d.kind === 'opening');
 
   if (trades.length === 0 && cashEvents.length === 0) {
     return (
       <div className="card">
         <div className="empty">
           <div className="big">📈</div>
-          <p>Your journal is empty. Log a decision — or load demo data to see how comparisons work.</p>
+          <p>Start by adding the holdings you already own — then journal your decisions from there.</p>
           <div className="row" style={{ marginTop: 16, justifyContent: 'center' }}>
-            <a className="btn primary" href="#/new">+ First decision</a>
+            <a className="btn primary" href="#/setup">Set up your portfolio</a>
             <button onClick={() => { loadData(makeDemoData()); navigate('/'); }}>
               Load demo data
             </button>
@@ -154,6 +174,13 @@ export function Dashboard() {
 
       {refreshError && <div className="error-banner">{refreshError}</div>}
 
+      {onlyOpening && (
+        <div className="card nudge">
+          <span>✅ Portfolio set up. Now log decisions as you make them — that’s where the comparison magic happens.</span>
+          <a className="btn primary small" href="#/new">+ Log a decision</a>
+        </div>
+      )}
+
       {ledger.positions.length > 0 && (
         <AllocationDonut
           positions={ledger.positions}
@@ -204,6 +231,19 @@ export function Dashboard() {
                     />
                   ) : null;
                 })}
+                {hasBenchmark && (
+                  <Area
+                    type="monotone"
+                    dataKey="benchmark"
+                    name={settings.benchmarkTicker || 'Benchmark'}
+                    stroke="var(--muted)"
+                    strokeWidth={2}
+                    strokeDasharray="6 5"
+                    fill="none"
+                    dot={false}
+                    connectNulls
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey="value"
@@ -216,7 +256,10 @@ export function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
-            <p className="hint">◆ markers are decisions — open one from the Decisions tab to see its diff.</p>
+            <p className="hint">
+              ◆ markers are decisions — open one from the Decisions tab to see its diff.
+              {hasBenchmark && ` Dashed line = ${settings.benchmarkTicker} (same money in the index).`}
+            </p>
           </>
         ) : (
           <p className="hint">

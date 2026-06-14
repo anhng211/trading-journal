@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  benchmarkSeries,
   costBasis,
   diffPortfolios,
   portfolioValue,
@@ -7,7 +8,7 @@ import {
   replayTrades,
   weights,
 } from './portfolio';
-import type { CashEvent, Trade } from '../types';
+import type { CashEvent, PriceSnapshot, Trade } from '../types';
 
 const trade = (overrides: Partial<Trade>): Trade => ({
   id: Math.random().toString(36).slice(2),
@@ -191,6 +192,67 @@ describe('portfolioValue / weights', () => {
     const positions = [{ ticker: 'AAPL', shares: 10, avgCost: 100 }];
     const w = weights(positions, 1000, { AAPL: { price: 100, fetchedAt: '' } });
     expect(w.AAPL).toBeCloseTo(1000 / 2000);
+  });
+});
+
+const snap = (t: string, spy: number): PriceSnapshot => ({ t, prices: { SPY: spy } });
+
+describe('benchmarkSeries', () => {
+  it('returns empty when no benchmark or no benchmark prices', () => {
+    expect(benchmarkSeries([], 1000, [snap('2026-01-01', 100)], undefined)).toEqual([]);
+    expect(benchmarkSeries([], 1000, [{ t: '2026-01-01', prices: {} }], 'SPY')).toEqual([]);
+  });
+
+  it('grows the initial capital with the benchmark price', () => {
+    const series = benchmarkSeries(
+      [],
+      1000,
+      [snap('2026-01-01', 100), snap('2026-02-01', 120)],
+      'SPY',
+    );
+    // 1000 / 100 = 10 units; at 120 → 1200
+    expect(series[0].value).toBeCloseTo(1000);
+    expect(series[1].value).toBeCloseTo(1200);
+  });
+
+  it('a later deposit buys units at the price on/after its date', () => {
+    const deposit: CashEvent = {
+      id: 'd', datetime: '2026-02-01T00:00:00.000Z', type: 'deposit', amount: 600,
+      createdAt: '', updatedAt: '',
+    };
+    const series = benchmarkSeries(
+      [deposit],
+      1000,
+      [snap('2026-01-01T00:00:00.000Z', 100), snap('2026-02-01T00:00:00.000Z', 120)],
+      'SPY',
+    );
+    // start: 10 units. deposit 600 @120 = 5 units → 15 units × 120 = 1800
+    expect(series[1].value).toBeCloseTo(1800);
+  });
+
+  it('a deposit before tracking uses the first snapshot price', () => {
+    const deposit: CashEvent = {
+      id: 'd', datetime: '2025-12-01T00:00:00.000Z', type: 'deposit', amount: 500,
+      createdAt: '', updatedAt: '',
+    };
+    const series = benchmarkSeries(
+      [deposit],
+      1000,
+      [snap('2026-01-01', 100), snap('2026-02-01', 110)],
+      'SPY',
+    );
+    // (1000+500)/100 = 15 units; at 110 → 1650
+    expect(series[1].value).toBeCloseTo(1650);
+  });
+
+  it('a withdrawal removes units', () => {
+    const wd: CashEvent = {
+      id: 'w', datetime: '2026-01-01T00:00:00.000Z', type: 'withdrawal', amount: 200,
+      createdAt: '', updatedAt: '',
+    };
+    const series = benchmarkSeries([wd], 1000, [snap('2026-01-01T00:00:00.000Z', 100)], 'SPY');
+    // 1000/100 - 200/100 = 8 units × 100 = 800
+    expect(series[0].value).toBeCloseTo(800);
   });
 });
 
