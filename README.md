@@ -1,4 +1,4 @@
-# DecisionJournal
+# Trading & Investment Journal
 
 A decision-centric trading journal. Most journals log trades; this one logs **decisions** — a written thesis plus the trades that execute it — and makes the comparison visible:
 

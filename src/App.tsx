@@ -59,7 +59,7 @@ function App() {
       <ThemeToggle />
       <header className="app">
         <h1>
-          Decision<span>Journal</span>
+          Trading &amp; Investment <span>Journal</span>
         </h1>
         <p>Log the thesis. Diff the portfolio. Compare against doing nothing.</p>
       </header>
