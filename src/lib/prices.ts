@@ -24,3 +24,27 @@ export async function fetchQuote(ticker: string, apiKey: string): Promise<QuoteR
 export async function fetchQuotes(tickers: string[], apiKey: string): Promise<QuoteResult[]> {
   return Promise.all(tickers.map((t) => fetchQuote(t, apiKey)));
 }
+
+export interface ProfileResult {
+  ticker: string;
+  sector: string | null;
+}
+
+/** Company profile (free tier): we only use finnhubIndustry as the sector label. */
+export async function fetchProfile(ticker: string, apiKey: string): Promise<ProfileResult> {
+  const symbol = ticker.toUpperCase();
+  try {
+    const res = await fetch(
+      `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+    );
+    if (!res.ok) return { ticker: symbol, sector: null };
+    const data = (await res.json()) as { finnhubIndustry?: string };
+    return { ticker: symbol, sector: data.finnhubIndustry?.trim() || null };
+  } catch {
+    return { ticker: symbol, sector: null };
+  }
+}
+
+export async function fetchProfiles(tickers: string[], apiKey: string): Promise<ProfileResult[]> {
+  return Promise.all(tickers.map((t) => fetchProfile(t, apiKey)));
+}

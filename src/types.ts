@@ -68,6 +68,15 @@ export interface Settings {
   startingCash: number;
   /** Ticker the equity curve is benchmarked against (e.g. SPY). */
   benchmarkTicker?: string;
+  /** Annual risk-free rate in percent, used by the Sharpe ratio (default 4). */
+  riskFreeRate?: number;
+}
+
+/** Classification metadata per ticker, for the X-Ray composition views. */
+export interface TickerMeta {
+  sector?: string;
+  type?: 'stock' | 'etf';
+  updatedAt: string;
 }
 
 export interface PriceEntry {
@@ -90,13 +99,15 @@ export interface JournalData {
   settings: Settings;
   prices: PriceCache;
   priceSnapshots: PriceSnapshot[];
+  tickerMeta: Record<string, TickerMeta>;
 }
 
 export const emptyJournal = (): JournalData => ({
   trades: [],
   decisions: [],
   cashEvents: [],
-  settings: { startingCash: 10000, benchmarkTicker: 'SPY' },
+  settings: { startingCash: 10000, benchmarkTicker: 'SPY', riskFreeRate: 4 },
   prices: {},
   priceSnapshots: [],
+  tickerMeta: {},
 });

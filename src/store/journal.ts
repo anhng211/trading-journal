@@ -7,12 +7,14 @@ import type {
   JournalData,
   Review,
   Settings,
+  TickerMeta,
   Trade,
 } from '../types';
 import { emptyJournal } from '../types';
 import { LocalStorageAdapter, type StorageAdapter } from './storage';
 import { replayLedger } from '../lib/portfolio';
-import { fetchQuotes } from '../lib/prices';
+import { fetchProfiles, fetchQuotes } from '../lib/prices';
+import { KNOWN_ETFS } from '../lib/analytics';
 
 const adapter: StorageAdapter = new LocalStorageAdapter();
 
@@ -60,6 +62,7 @@ interface JournalStore extends JournalData {
   deleteCashEvent(id: string): void;
   saveReview(decisionId: string, review: Review): void;
   setSettings(patch: Partial<Settings>): void;
+  setTickerMeta(ticker: string, patch: Partial<Omit<TickerMeta, 'updatedAt'>>): void;
   setManualPrice(ticker: string, price: number): void;
   refreshPrices(): Promise<void>;
   exportJSON(): string;
@@ -69,8 +72,8 @@ interface JournalStore extends JournalData {
 }
 
 const persist = (state: JournalStore) => {
-  const { trades, decisions, cashEvents, settings, prices, priceSnapshots } = state;
-  adapter.save({ trades, decisions, cashEvents, settings, prices, priceSnapshots });
+  const { trades, decisions, cashEvents, settings, prices, priceSnapshots, tickerMeta } = state;
+  adapter.save({ trades, decisions, cashEvents, settings, prices, priceSnapshots, tickerMeta });
 };
 
 export const useJournal = create<JournalStore>((set, get) => ({
@@ -224,6 +227,15 @@ export const useJournal = create<JournalStore>((set, get) => ({
     persist(get());
   },
 
+  setTickerMeta(ticker, patch) {
+    const t = ticker.toUpperCase();
+    const now = new Date().toISOString();
+    set((s) => ({
+      tickerMeta: { ...s.tickerMeta, [t]: { ...s.tickerMeta[t], ...patch, updatedAt: now } },
+    }));
+    persist(get());
+  },
+
   setManualPrice(ticker, price) {
     const t = ticker.toUpperCase();
     const now = new Date().toISOString();
@@ -252,7 +264,15 @@ export const useJournal = create<JournalStore>((set, get) => ({
     if (tickers.length === 0) return;
 
     set({ refreshing: true, refreshError: undefined });
-    const results = await fetchQuotes(tickers, key);
+    // Also classify unknown tickers (sector for X-Ray) while we're at it.
+    const held = new Set(state.trades.map((t) => t.ticker.toUpperCase()));
+    const unclassified = [...held].filter(
+      (t) => !state.tickerMeta[t]?.sector && !KNOWN_ETFS.has(t),
+    );
+    const [results, profiles] = await Promise.all([
+      fetchQuotes(tickers, key),
+      fetchProfiles(unclassified, key),
+    ]);
     const now = new Date().toISOString();
     const failed = results.filter((r) => r.price == null);
 
@@ -263,8 +283,22 @@ export const useJournal = create<JournalStore>((set, get) => ({
       }
       const batch: Record<string, number> = {};
       for (const [ticker, entry] of Object.entries(prices)) batch[ticker] = entry.price;
+
+      const tickerMeta = { ...s.tickerMeta };
+      for (const p of profiles) {
+        if (p.sector) {
+          tickerMeta[p.ticker] = {
+            ...tickerMeta[p.ticker],
+            sector: p.sector,
+            type: tickerMeta[p.ticker]?.type ?? 'stock',
+            updatedAt: now,
+          };
+        }
+      }
+
       return {
         prices,
+        tickerMeta,
         priceSnapshots: appendSnapshot(s.priceSnapshots, now, batch),
         refreshing: false,
         refreshError: failed.length
@@ -276,9 +310,9 @@ export const useJournal = create<JournalStore>((set, get) => ({
   },
 
   exportJSON() {
-    const { trades, decisions, cashEvents, settings, prices, priceSnapshots } = get();
+    const { trades, decisions, cashEvents, settings, prices, priceSnapshots, tickerMeta } = get();
     return JSON.stringify(
-      { trades, decisions, cashEvents, settings, prices, priceSnapshots },
+      { trades, decisions, cashEvents, settings, prices, priceSnapshots, tickerMeta },
       null,
       2,
     );

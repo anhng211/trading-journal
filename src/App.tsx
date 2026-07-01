@@ -5,6 +5,7 @@ import { DecisionDetail } from './components/DecisionDetail';
 import { DecisionForm } from './components/DecisionForm';
 import { CompareView } from './components/CompareView';
 import { PortfolioSetup } from './components/PortfolioSetup';
+import { XRay } from './components/XRay';
 import { SettingsView } from './components/Settings';
 import { useTheme } from './lib/theme';
 
@@ -45,6 +46,7 @@ function ThemeToggle() {
 const TABS: Array<{ label: string; href: string; match: Route['name'][] }> = [
   { label: 'Dashboard', href: '#/', match: ['dashboard', 'setup'] },
   { label: 'Decisions', href: '#/decisions', match: ['decisions', 'decision', 'compare'] },
+  { label: 'X-Ray', href: '#/xray', match: ['xray'] },
   { label: '+ New Decision', href: '#/new', match: ['new'] },
   { label: 'Settings', href: '#/settings', match: ['settings'] },
 ];
@@ -76,6 +78,7 @@ function App() {
       {route.name === 'compare' && <CompareView a={route.a} b={route.b} />}
       {route.name === 'new' && <DecisionForm />}
       {route.name === 'setup' && <PortfolioSetup />}
+      {route.name === 'xray' && <XRay />}
       {route.name === 'settings' && <SettingsView />}
     </div>
   );

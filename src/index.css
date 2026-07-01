@@ -253,6 +253,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .nudge span { font-weight: 600; font-size: 0.92rem; }
 
+/* X-Ray horizontal bars */
+.hbar-row { display: grid; grid-template-columns: 120px 1fr 56px; gap: 10px; align-items: center; padding: 5px 0; }
+.hbar-label { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-track { background: var(--neutral-bg); border-radius: 99px; height: 10px; overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 99px; }
+.hbar-value { font-weight: 700; font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* X-Ray asset-mix stacked bar */
+.mix-bar { display: flex; height: 16px; border-radius: 99px; overflow: hidden; background: var(--neutral-bg); }
+.mix-seg { height: 100%; }
+
 /* Top movers */
 .movers-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .movers-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--neutral-bg); }

@@ -72,13 +72,13 @@ const DEMO: DemoDecision[] = [
 ];
 
 const SNAPSHOTS: Array<{ daysAgo: number; prices: Record<string, number> }> = [
-  { daysAgo: 75, prices: { VOO: 485, AAPL: 222, INTC: 33 } },
-  { daysAgo: 60, prices: { VOO: 490, AAPL: 226, INTC: 31 } },
-  { daysAgo: 44, prices: { VOO: 492, AAPL: 224, INTC: 29.5, NVDA: 122 } },
-  { daysAgo: 30, prices: { VOO: 498, AAPL: 228, INTC: 27, NVDA: 128 } },
-  { daysAgo: 13, prices: { VOO: 503, AAPL: 231, INTC: 25.5, NVDA: 134, MSFT: 424 } },
-  { daysAgo: 7, prices: { VOO: 507, AAPL: 233, INTC: 24.8, NVDA: 138, MSFT: 428 } },
-  { daysAgo: 1, prices: { VOO: 510, AAPL: 235, INTC: 24, NVDA: 141, MSFT: 432 } },
+  { daysAgo: 75, prices: { VOO: 485, AAPL: 222, INTC: 33, SPY: 528 } },
+  { daysAgo: 60, prices: { VOO: 490, AAPL: 226, INTC: 31, SPY: 534 } },
+  { daysAgo: 44, prices: { VOO: 492, AAPL: 224, INTC: 29.5, NVDA: 122, SPY: 536 } },
+  { daysAgo: 30, prices: { VOO: 498, AAPL: 228, INTC: 27, NVDA: 128, SPY: 542 } },
+  { daysAgo: 13, prices: { VOO: 503, AAPL: 231, INTC: 25.5, NVDA: 134, MSFT: 424, SPY: 548 } },
+  { daysAgo: 7, prices: { VOO: 507, AAPL: 233, INTC: 24.8, NVDA: 138, MSFT: 428, SPY: 552 } },
+  { daysAgo: 1, prices: { VOO: 510, AAPL: 235, INTC: 24, NVDA: 141, MSFT: 432, SPY: 555 } },
 ];
 
 export function makeDemoData(): JournalData {
@@ -147,12 +147,22 @@ export function makeDemoData(): JournalData {
     ]),
   );
 
+  const metaAt = daysAgo(1);
+  const tickerMeta = {
+    VOO: { sector: 'ETF / Fund', type: 'etf' as const, updatedAt: metaAt },
+    AAPL: { sector: 'Technology', type: 'stock' as const, updatedAt: metaAt },
+    NVDA: { sector: 'Semiconductors', type: 'stock' as const, updatedAt: metaAt },
+    MSFT: { sector: 'Software', type: 'stock' as const, updatedAt: metaAt },
+    INTC: { sector: 'Semiconductors', type: 'stock' as const, updatedAt: metaAt },
+  };
+
   return {
     trades,
     decisions,
     cashEvents,
-    settings: { startingCash },
+    settings: { startingCash, benchmarkTicker: 'SPY', riskFreeRate: 4 },
     prices,
     priceSnapshots,
+    tickerMeta,
   };
 }
