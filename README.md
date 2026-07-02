@@ -24,6 +24,13 @@ npm run build  # type-check + production build
 
 Pushes to `main` build and publish to GitHub Pages via `.github/workflows/deploy.yml`.
 
+## Excel companion
+
+[`excel/Trading-Investment-Journal.xlsx`](excel/Trading-Investment-Journal.xlsx) is a formula-driven
+Excel twin of this app: 10 linked sheets replicating the ledger, decision counterfactuals, and X-Ray
+risk statistics, pre-loaded with the demo dataset. See [excel/GUIDE.md](excel/GUIDE.md) (procedures)
+and [excel/RECONCILIATION.md](excel/RECONCILIATION.md) (value-by-value match against the app).
+
 ## Phase 2 (planned)
 
 Social layer: accounts, cloud-synced journals, and shared decision pages. All persistence already goes through a `StorageAdapter` interface (`src/store/storage.ts`) so a Supabase adapter can replace localStorage without touching the UI.
